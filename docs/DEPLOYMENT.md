@@ -3,7 +3,17 @@
 Use the self-hosted deployment instructions and environment-variable reference below.
 Keep workers on a private network and expose only the console through HTTPS.
 
-## 2. Self-hosting with Docker
+### Railway (optional per-instance-domains mode)
+
+Set `LUNEL_RAILWAY_TOKEN`, and project/environment IDs (auto-injected when
+the console itself runs on Railway). Each instance is then deployed as its
+own Railway service with a generated public domain — verified against the
+current Railway GraphQL API. Without those variables, Railway uses the same
+single-service behavior as above.
+
+---
+
+## 3. Self-hosted Docker
 
 ```bash
 export LUNEL_PG_PASSWORD=$(openssl rand -hex 16)
@@ -28,35 +38,26 @@ cd deploy/docker && docker compose up -d --build
 - Optional wildcard endpoints: point `*.lunel.example.com` at the host and
   uncomment the Caddy service (`deploy/proxy/Caddyfile.template`).
 
-### Optional: Railway provider
-
-When `LUNEL_RAILWAY_TOKEN` + project/environment are configured, the Console
-deploys each instance as its own Railway service with a generated public
-domain (verified against the current Railway GraphQL API: `serviceCreate`,
-`serviceInstanceUpdate`, `serviceDomainCreate`, `serviceInstanceDeployV2`,
-`deploymentRedeploy`/`deploymentStop`, `deploymentLogs`). Image source is
-`LUNEL_CORE_IMAGE` (default `ghcr.io/lunelsh/lunel-core:latest` — build and
-push it once).
-
 ---
 
 ## Environment variables reference
 
-### Console
+### Console / unified service
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LUNEL_DATABASE_URL` | `postgres://lunel:lunel@127.0.0.1:5432/lunel` | PostgreSQL DSN |
-| `LUNEL_SECRET_KEY` | — (required, ≥32 chars) | Session hashing context |
-| `LUNEL_WORKER_TOKEN` | — (required) | Shared secret with workers |
-| `LUNEL_GITHUB_CLIENT_ID/SECRET` | — | OAuth |
-| `LUNEL_PUBLIC_URL` | `http://127.0.0.1:8080` | Canonical console origin (OAuth redirect, endpoint URLs) |
+| `PORT` | `8080` | Public listen port (platform-injected) |
+| `LUNEL_DATABASE_URL` | falls back to `DATABASE_URL` | PostgreSQL DSN |
+| `LUNEL_SECRET_KEY` | auto-generated + persisted | Session hashing context |
+| `LUNEL_WORKER_TOKEN` | auto-generated (unified) / required (split) | Shared secret with workers |
+| `LUNEL_GITHUB_CLIENT_ID/SECRET` | — | OAuth login |
+| `LUNEL_PUBLIC_URL` | `http://127.0.0.1:$PORT` | Canonical console origin (OAuth redirect, endpoint URLs) |
 | `LUNEL_ADMIN_GITHUB_LOGIN` | — | Bootstrap admin |
 | `LUNEL_COOKIE_SECURE` | `0` | Set `1` behind HTTPS |
-| `LUNEL_LOCAL_WORKER_URL` | `http://127.0.0.1:9100` | Default worker API |
+| `LUNEL_LOCAL_WORKER_URL` | auto (unified) / `http://127.0.0.1:9100` | Default worker API |
 | `LUNEL_DOMAIN_ROOT` | `lunel.app` | Informational for provider domains |
 
-### Worker
+### Worker (split deployments)
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -73,7 +74,7 @@ push it once).
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `8000` | Listen port |
+| `PORT` | `8000` | Listen port (allocated automatically by the worker) |
 | `LUNEL_CORE_API_TOKEN` | — | Management API bearer (required for it to be enabled) |
 | `LUNEL_STATE_PATH` | `/data/state.json` | Persistence |
 | `LUNEL_LOG_LEVEL` / `LUNEL_LOG_JSON` | `info` / `0` | Logging |
