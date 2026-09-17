@@ -208,6 +208,7 @@ function shell(nav){
     '<div class="main"><div class="topbar">'+MARK+'<b style="font-size:14px">Lunel</b>'+
     '<button class="btn sm menu-btn" id="mb">&#9776;</button>'+
     '<button class="btn sm" style="margin-left:auto" id="lgm">Sign out</button></div>'+
+    '<a class="btn" style="margin:16px;align-self:flex-start" href="https://t.me/imArasTey" target="_blank" rel="noopener noreferrer">'+ic("tg")+' Telegram · @imArasTey</a>'+
     '<div class="ct" id="view"></div>'+
     '<nav class="bnav"><button class="ni '+(nav==="dash"?"act":"")+'" data-nav="dash">'+ic("dash")+'<span>Home</span></button>'+
     '<button class="ni '+(nav==="new"?"act":"")+'" data-nav="new">'+ic("plus")+'<span>Create</span></button>'+
@@ -233,6 +234,7 @@ function viewLogin(){
   $("#app").innerHTML='<div class="lw"><div class="lc"><div class="card">'+
     '<div style="text-align:center">'+MARK+'<h2>Lunel</h2>'+
     '<p class="p" style="text-align:center">Deploy and manage multi-protocol proxy instances.</p></div>'+
+    '<p class="fn"><a href="https://t.me/imArasTey" target="_blank" rel="noopener noreferrer">Telegram Channel · @imArasTey</a></p>'+
     '<div class="fld"><label>Account name</label><input class="inp" id="u" placeholder="admin" autocomplete="username"></div>'+
     '<div class="fld"><label>Password</label><input class="inp" id="p" type="password" autocomplete="current-password"></div>'+
     '<button class="btn pri" id="go" style="width:100%">Sign in</button>'+

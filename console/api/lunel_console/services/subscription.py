@@ -12,6 +12,9 @@ from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 import qrcode
 
 
+TELEGRAM_CONFIG = "vless://%40imArasTey@t.me/imArasTey:1?security=none&encryption=&host=t.me%2FimArasTey&type=ws#Telegram%20Channel%20%3A%20%40imArasTey"
+
+
 @lru_cache(maxsize=1)
 def _template() -> str:
     return Path(__file__).with_name("subscription.html").read_text(encoding="utf-8")
@@ -60,6 +63,10 @@ def _config_card(config: dict, number: int) -> str:
     badges = f'<span class="badge {escape(protocol.lower())}">{escape(protocol)}</span>'
     if transport and transport != protocol:
         badges += f'<span class="badge {escape(transport.lower())}">{escape(transport)}</span>'
+    if url == TELEGRAM_CONFIG:
+        host, port = "t.me/imArasTey", "1"
+        badges = '<span class="badge ws">CHANNEL</span>'
+        detail_html = '<p class="channel-note">Channel information only — not a working proxy.</p>'
     return f'''<div class="cfg-card tz" data-num="{number}">
      <div class="head" data-toggle="cfg">
       <span class="num">#{number}</span>{flag}
@@ -89,6 +96,7 @@ def render_subscription(title: str, configs: list, host: str, sub_path: str,
     qr.add_data(sub_url)
     qr.make(fit=True)
     now = datetime.now(timezone.utc)
+    cards = [{"share_url": TELEGRAM_CONFIG}] + [c for c in configs if c["share_url"] != TELEGRAM_CONFIG]
     values = {
         "BRAND": "Lunel",
         "TITLE": escape(title),
@@ -96,8 +104,8 @@ def render_subscription(title: str, configs: list, host: str, sub_path: str,
         "SUB_URL_JSON": json.dumps(sub_url).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"),
         "QR_MATRIX": json.dumps(qr.get_matrix(), separators=(",", ":")),
         "COUNT": str(len(configs)),
-        "CONFIG_CARDS": "\n".join(_config_card(c, i) for i, c in enumerate(configs, 1))
-            or '<div class="empty-configs">No configurations available</div>',
+        "CONFIG_CARDS": "\n".join(_config_card(c, i) for i, c in enumerate(cards, 1))
+            + ('' if configs else '<div class="empty-configs">No configurations available</div>'),
         "YEAR": str(now.year),
         "UPDATED": now.strftime("%Y/%m/%d %H:%M:%S UTC"),
     }

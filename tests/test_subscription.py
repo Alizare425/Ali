@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "console" / "api"))
 from fastapi import FastAPI
 import httpx
 from lunel_console.services import gateway
-from lunel_console.services.subscription import render_subscription
+from lunel_console.services.subscription import TELEGRAM_CONFIG, render_subscription
 
 CONFIGS = [{"protocol": "vless-ws", "label": "Example", "share_url":
     "vless://00000000-0000-0000-0000-000000000001@example.test:443?security=tls&type=ws&path=%2Fi%2Ftoken%2Fws%2Fuuid&alpn=http%2F1.1#Example"}]
@@ -57,6 +57,16 @@ class SubscriptionTests(unittest.TestCase):
                 export(url)
             self.assertEqual(caught.exception.status_code, 422)
 
+    def test_channel_card_and_mobile_constraints(self):
+        page = render_subscription('Mobile', CONFIGS, 'example.test', '/i/token/sub')
+        self.assertIn('href="https://t.me/imArasTey"', page)
+        self.assertIn(TELEGRAM_CONFIG, unescape(page))
+        self.assertIn('not a working proxy', page)
+        self.assertLess(page.index('Telegram Channel :'), page.index('id="link-2"'))
+        self.assertIn('.cfg-card .name{display:block;', page)
+        self.assertIn('grid-template-columns:repeat(2,minmax(0,1fr))', page)
+        self.assertEqual(len(CONFIGS), 1)
+
     def test_empty_configs(self):
         page = render_subscription('Empty', [], 'example.test', '/i/token/sub')
         self.assertIn('No configurations available', page)
@@ -80,13 +90,15 @@ class SubscriptionTests(unittest.TestCase):
                 browser = {'user-agent': 'Mozilla/5.0', 'accept': 'text/html'}
                 for headers in ({}, {'user-agent': 'Mozilla/5.0'}, {'user-agent': 'Happ', 'accept': 'text/html'}):
                     result = await client.get('/i/token/sub', headers=headers)
-                    self.assertEqual(base64.b64decode(result.text).decode(), CONFIGS[0]['share_url'])
+                    self.assertEqual(base64.b64decode(result.text).decode().splitlines(), [TELEGRAM_CONFIG, CONFIGS[0]['share_url']])
                     self.assertIn('subscription-userinfo', result.headers)
                 result = await client.get('/i/token/sub', headers=browser)
                 self.assertIn('text/html', result.headers['content-type'])
                 self.assertIn('Lunel Panel', result.text)
                 result = await client.get('/i/token/sub?fmt=singbox', headers=browser)
                 self.assertEqual(result.json()['outbounds'][0]['type'], 'vless')
+                self.assertNotIn('imArasTey', result.text)
+                self.assertEqual(len(result.json()['outbounds']), 1)
                 result = await client.get('/i/token/sub?fmt=clash', headers=browser)
                 self.assertIn('proxies:', result.text)
                 self.assertNotIn('<!DOCTYPE', result.text)

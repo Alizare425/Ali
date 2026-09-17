@@ -375,6 +375,9 @@ async def instance_subscription(token: str, request: Request):
         )
         return _Response(content=payload, media_type="text/yaml", headers=_headers())
 
+    from .subscription import TELEGRAM_CONFIG
+
+    links = [TELEGRAM_CONFIG] + [url for url in links if url != TELEGRAM_CONFIG]
     body = _b64.b64encode("\n".join(links).encode()).decode()
     return _Response(content=body, media_type="text/plain", headers=_headers())
 
