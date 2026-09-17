@@ -330,6 +330,7 @@ async def _provision_default_link(pool: asyncpg.Pool, deployment_id: str,
                       "vmess-ws": "VMess"}
         wanted = [(p, pretty_map.get(p, p)) for p in selected]
         created = 0
+        skipped = []
         async with httpx.AsyncClient(timeout=30) as client:
             for proto, pretty in wanted:
                 resp = await client.post(
@@ -339,7 +340,15 @@ async def _provision_default_link(pool: asyncpg.Pool, deployment_id: str,
                     headers={"Authorization": f"Bearer {_settings.worker_token}",
                              "Content-Type": "application/json"},
                 )
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    # One unprovisionable protocol (e.g. VMess without an
+                    # operator-installed Xray runtime) must not fail a deploy
+                    # whose other protocols are working.
+                    detail = str(resp.json().get("detail") or resp.text)[:200]
+                    skipped.append(f"{pretty}: {detail}")
+                    await _log(pool, deployment_id,
+                               f"Skipped {pretty} link — {detail}", "warn")
+                    continue
                 link_uuid = resp.json()["uuid"]
                 await pool.execute(
                     "INSERT INTO instance_links (id, instance_id, link_uuid, label, created_at) "
@@ -348,7 +357,12 @@ async def _provision_default_link(pool: asyncpg.Pool, deployment_id: str,
                     f"{row['name']} · {pretty}", datetime.now(timezone.utc),
                 )
                 created += 1
-        await _log(pool, deployment_id, f"Provisioned {created} links (all protocols)", "ok")
+        if created:
+            await _log(pool, deployment_id,
+                       f"Provisioned {created} links"
+                       + (f" ({len(skipped)} skipped)" if skipped else ""), "ok")
+        elif skipped:
+            raise RuntimeError("no protocol could be provisioned; see deployment logs")
     except Exception as exc:
         await _log(pool, deployment_id, f"link provisioning failed: {exc}", "error")
         raise RuntimeError("selected protocol could not be provisioned; check Core runtime configuration") from exc
