@@ -29,10 +29,8 @@ class Settings:
     worker_token: str = os.environ.get("LUNEL_WORKER_TOKEN", "")
     # Token workers use for heartbeats (defaults to worker_token)
     heartbeat_token: str = os.environ.get("LUNEL_WORKER_HEARTBEAT_TOKEN", "")
-    # Public links shown in the panel sidebar
-    telegram_channel: str = os.environ.get(
-        "LUNEL_TELEGRAM_CHANNEL", "https://LUNEL_SUPPORT_CHANNEL"
-    )
+    # Public links shown in the panel sidebar (empty = hidden)
+    telegram_channel: str = os.environ.get("LUNEL_TELEGRAM_CHANNEL", "")
     # First GitHub user to log in becomes admin (bootstrap)
     admin_github_login: str = os.environ.get("LUNEL_ADMIN_GITHUB_LOGIN", "")
     # Domain root for generated instance endpoints

@@ -17,3 +17,8 @@ node_modules/
 .DS_Store
 *.log
 .pytest_cache/
+
+# Local runtime data and private notes (never commit)
+.lunel-data/
+PROJECT-BRIEF.md
+lunel-announcement.txt

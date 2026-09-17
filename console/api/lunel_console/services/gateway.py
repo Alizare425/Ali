@@ -342,8 +342,9 @@ async def instance_subscription(token: str, request: Request):
             "subscription-userinfo": "upload=0; download=0; total=0; expire=0",
             "profile-update-interval": "24",
             "profile-web-page-url": f"{request.url.scheme}://{request.headers.get('host', host)}",
-            "support-url": "https://LUNEL_SUPPORT_CHANNEL",
         }
+        if _settings.telegram_channel:
+            h["support-url"] = _settings.telegram_channel
         if extra:
             h.update(extra)
         return h
