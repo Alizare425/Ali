@@ -24,7 +24,8 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc)
 
 
-PROTOCOLS = ("vless-ws", "trojan-ws", "shadowsocks", "xhttp-packet-up", "xhttp-stream-up")
+PROTOCOLS = ("vless-ws", "trojan-ws", "shadowsocks", "xhttp-packet-up", "xhttp-stream-up",
+             "trojan-xhttp-packet-up", "trojan-xhttp-stream-up", "vmess-ws")
 
 
 async def current_user(request: Request) -> asyncpg.Record:

@@ -32,8 +32,11 @@ def main(argv: list[str] | None = None) -> int:
             "Lunel Core %s (build=%s commit=%s) listening on %s:%d",
             info()["version"], info()["build"], info()["commit"], cfg.host, cfg.port,
         )
-        yield
-        await core.store.save(core.links, core.stats)
+        try:
+            yield
+        finally:
+            await core.vmess_runtime.close()
+            await core.store.save(core.links, core.stats)
         log.info("Lunel Core shut down cleanly")
 
     core.app.router.lifespan_context = lifespan

@@ -286,7 +286,11 @@ function viewDash(){
 var PROTOS=[["vless-ws","VLESS over WebSocket","Widest client support (v2rayNG, NekoBox). Recommended."],
 ["trojan-ws","Trojan over WebSocket","TLS-like handshake, good under strict DPI."],
 ["shadowsocks","Shadowsocks AEAD","Lightweight AEAD (chacha20 / aes-gcm) over WebSocket."],
-["xhttp-packet-up","VLESS xHTTP (packet-up)","HTTP-native transport, resists connection shaping."]];
+["xhttp-packet-up","VLESS xHTTP (packet-up)","HTTP-native transport. Requires an xHTTP-compatible client."],
+["xhttp-stream-up","VLESS xHTTP (stream-up)","Streaming HTTP upload. Requires a compatible client and edge."],
+["trojan-xhttp-packet-up","Trojan xHTTP (packet-up)","Trojan over HTTP-native packet uploads. Use an xHTTP-compatible Xray client."],
+["trojan-xhttp-stream-up","Trojan xHTTP (stream-up)","Trojan over streaming HTTP. Requires a compatible client and edge."],
+["vmess-ws","VMess AEAD over WebSocket","Requires an operator-installed, SHA256-pinned Xray executable on the worker."]];
 function viewWizard(){
   shell("new");
   var m={name:"",region:"local",protocol:"vless-ws",protocols:["vless-ws"],cpu:0.5,mem:256},step=0;
@@ -520,6 +524,16 @@ function viewAdmin(){
         b.innerHTML='<div class="card" style="padding:0;overflow-x:auto"><table class="tbl"><thead><tr><th>Node</th><th>Region</th><th>Status</th><th>CPU</th><th>Memory</th><th>Capacity</th><th>Heartbeat</th></tr></thead><tbody>'+
         (d.workers.length?d.workers.map(function(w){return "<tr><td class='mono'>"+esc(w.node_id)+"</td><td>"+esc(w.region)+"</td><td>"+stEl(w.status).outerHTML+"</td><td>"+(w.cpu_percent!=null?w.cpu_percent.toFixed(0)+"%":"—")+"</td><td>"+(w.mem_used_mb!=null?w.mem_used_mb+" / "+w.mem_total_mb+" MB":"—")+"</td><td>"+(w.instances||0)+" / "+(w.capacity||"?")+"</td><td class='ftx'>"+ago(w.last_heartbeat)+"</td></tr>"}).join(""):'<tr><td colspan="7" class="ftx" style="text-align:center;padding:20px">No workers reported yet.</td></tr>')+"</tbody></table></div>"});
     }
+    else if(tab==="backup"){
+      b.innerHTML='<div class="card"><h3>Configuration backup & restore</h3><p class="ftx">Sensitive plaintext backup: includes password hashes and endpoint secrets. Store encrypted offline. Core runtime state, Shadowsocks passwords and worker registry are NOT included.</p><p class="ftx">Import never overwrites existing records. Imported instances are stopped, domains inactive and workers disabled. Target LUNEL_SECRET_KEY must match. Read the validation warnings before importing.</p><button class="btn" id="backup-export">Download configuration</button><hr><div class="fld"><label>Backup JSON (maximum 16 MiB)</label><input type="file" id="backup-file" accept="application/json,.json"></div><div class="row"><button class="btn" id="backup-check" disabled>Validate</button><button class="btn dng" id="backup-restore" disabled>Import configuration</button></div><pre id="backup-result" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>';
+      var backupText=null,backupBusy=false;
+      function backupCall(action,body){return fetch('/api/admin/backup/'+action,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Lunel-CSRF':CSRF||'','X-Lunel-Backup-Confirm':action==='restore'?'import':''},body:body}).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:JSON.stringify(d.detail||d));return d})})}
+      function backupShow(d){$('#backup-result').textContent=JSON.stringify(d,null,2)}
+      $('#backup-export').onclick=async function(){if(backupBusy)return;backupBusy=true;try{var d=await backupCall('export');var url=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));var a=document.createElement('a');a.href=url;a.download='lunel-configuration-backup-v1.json';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},1000);toast('Configuration downloaded; keep it private','ok')}catch(e){toast(e.message,'err')}finally{backupBusy=false}};
+      $('#backup-file').onchange=async function(e){backupText=null;$('#backup-check').disabled=true;$('#backup-restore').disabled=true;var f=e.target.files[0];if(!f)return;if(f.size>16777216){toast('Backup exceeds 16 MiB','err');return}try{backupText=await f.text();$('#backup-check').disabled=false;backupShow({status:'File loaded. Validate before importing.'})}catch(err){toast(err.message,'err')}};
+      $('#backup-check').onclick=async function(){if(backupBusy||!backupText)return;backupBusy=true;$('#backup-restore').disabled=true;try{var d=await backupCall('validate',backupText);backupShow(d);$('#backup-restore').disabled=!d.can_restore}catch(e){backupShow({error:e.message})}finally{backupBusy=false}};
+      $('#backup-restore').onclick=async function(){if(backupBusy||!backupText)return;if(!confirm('Import this configuration? It contains accounts and credentials. Runtime state is NOT restored. Existing records will never be overwritten.'))return;backupBusy=true;$('#backup-restore').disabled=true;try{backupShow(await backupCall('restore',backupText));toast('Configuration imported; runtime recovery remains manual','ok');backupText=null;$('#backup-check').disabled=true}catch(e){backupShow({error:e.message})}finally{backupBusy=false}};
+    }
     else if(tab==="system"){
       Promise.all([api("GET","/api/admin/system"),api("GET","/auth/me")]).then(function(rs){
         b.innerHTML='<div class="card" style="max-width:540px"><h3>Change your password</h3>'+
@@ -546,7 +560,7 @@ function viewAdmin(){
     var old=$("#ab");var head=v.querySelector(".ph"),sgs=$("#as");
     v.innerHTML="";v.appendChild(head);v.appendChild(sgs);
     var tb=document.createElement("div");tb.className="tabs";tb.id="atb";
-    ["instances","users","workers","system"].forEach(function(t){var btn=document.createElement("button");btn.className="tab "+(t===tab?"act":"");btn.textContent=t[0].toUpperCase()+t.slice(1);btn.onclick=function(){tab=t;rebuild();draw()};tb.appendChild(btn)});
+    ["instances","users","workers","backup","system"].forEach(function(t){var btn=document.createElement("button");btn.className="tab "+(t===tab?"act":"");btn.textContent=t[0].toUpperCase()+t.slice(1);btn.onclick=function(){tab=t;rebuild();draw()};tb.appendChild(btn)});
     var ab=document.createElement("div");ab.id="ab";v.appendChild(tb);v.appendChild(ab);
     draw();
   }

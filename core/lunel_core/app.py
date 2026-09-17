@@ -7,6 +7,7 @@ Routes:
     WS   /ws/{uuid}            VLESS over WebSocket
     WS   /trojan-ws            Trojan over WebSocket
     WS   /ss-ws                Shadowsocks AEAD over WebSocket
+    WS   /vmess-ws/{uuid}      VMess AEAD (WebSocket), via pinned Xray runtime
     POST /xhttp-siz10/...      VLESS xHTTP (packet-up / stream-up / downlink)
     POST /txhttp-siz10/...     Trojan xHTTP
 * Management API (Bearer token via LUNEL_CORE_API_TOKEN), consumed by the
@@ -36,6 +37,7 @@ from .relay.base import RelayContext
 from .relay.shadowsocks import shadowsocks_ws_tunnel
 from .relay.trojan import trojan_ws_tunnel
 from .relay.vless import vless_ws_tunnel
+from .relay.vmess import XrayRuntime, RuntimeUnavailable, verify_binary, vmess_ws_tunnel
 from .state import ConnectionTracker, Link, LinkStore, RuntimeStats, StateStore
 
 log = get("runtime", "lunel.core")
@@ -63,6 +65,7 @@ class Core:
 
         self.vless_xhttp = XHttpEngine(self.ctx, prefix="/xhttp-siz10")
         self.trojan_xhttp = XHttpEngine(self.ctx, prefix="/txhttp-siz10")
+        self.vmess_runtime = XrayRuntime(cfg)
 
         self.app = FastAPI(title="Lunel Core", docs_url=None, redoc_url=None,
                            version=version.version())
@@ -108,6 +111,10 @@ class Core:
         app.add_api_websocket_route("/ws/{uuid}", self._ws_vless)
         app.add_api_websocket_route("/trojan-ws", self._ws_trojan)
         app.add_api_websocket_route("/ss-ws", self._ws_shadowsocks)
+
+        @app.websocket("/vmess-ws/{uuid}")
+        async def vmess_ws(ws: WebSocket, uuid: str):
+            await vmess_ws_tunnel(self.ctx, self.vmess_runtime, ws, uuid)
 
         app.include_router(self.vless_xhttp.router)
         app.include_router(self.trojan_xhttp.router)
@@ -162,6 +169,11 @@ class Core:
         async def core_links_create(request: Request, _=Depends(guard)):
             body = await request.json()
             link = self._link_from_body(body)
+            if link.protocol == "vmess-ws":
+                try:
+                    await asyncio.to_thread(verify_binary, self.cfg)
+                except RuntimeUnavailable as exc:
+                    raise HTTPException(status_code=503, detail=str(exc)) from exc
             await self.links.add(link)
             self._schedule_save()
             return {"ok": True, "uuid": link.uuid}

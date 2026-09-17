@@ -324,7 +324,10 @@ async def _provision_default_link(pool: asyncpg.Pool, deployment_id: str,
             or [row["protocol"] or "vless-ws"]
         pretty_map = {"vless-ws": "VLESS", "trojan-ws": "Trojan",
                       "shadowsocks": "Shadowsocks", "xhttp-packet-up": "xHTTP",
-                      "xhttp-stream-up": "xHTTP"}
+                      "xhttp-stream-up": "xHTTP",
+                      "trojan-xhttp-packet-up": "Trojan xHTTP packet-up",
+                      "trojan-xhttp-stream-up": "Trojan xHTTP stream-up",
+                      "vmess-ws": "VMess"}
         wanted = [(p, pretty_map.get(p, p)) for p in selected]
         created = 0
         async with httpx.AsyncClient(timeout=30) as client:
@@ -347,7 +350,8 @@ async def _provision_default_link(pool: asyncpg.Pool, deployment_id: str,
                 created += 1
         await _log(pool, deployment_id, f"Provisioned {created} links (all protocols)", "ok")
     except Exception as exc:
-        await _log(pool, deployment_id, f"link provisioning failed: {exc}", "warn")
+        await _log(pool, deployment_id, f"link provisioning failed: {exc}", "error")
+        raise RuntimeError("selected protocol could not be provisioned; check Core runtime configuration") from exc
 
 
 # ---------------------------------------------------------------------------

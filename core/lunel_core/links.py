@@ -31,6 +31,20 @@ def generate_share_link(link: Link, host: str, remark_prefix: str = "Lunel",
     remark = f"{remark_prefix}-{link.label}"
     p = path_prefix.rstrip("/")
     proto = link.protocol
+    if proto == "vmess-ws":
+        import json
+        from urllib.parse import urlsplit
+
+        authority = urlsplit("//" + host)
+        data = {
+            "v": "2", "ps": remark, "add": authority.hostname or host,
+            "port": str(authority.port or 443), "id": link.uuid, "aid": "0",
+            "scy": "auto", "net": "ws", "type": "none",
+            "host": authority.hostname or host, "path": f"{p}/vmess-ws/{link.uuid}",
+            "tls": "tls", "sni": authority.hostname or host,
+            "alpn": "http/1.1", "fp": link.fingerprint,
+        }
+        return "vmess://" + base64.b64encode(json.dumps(data, ensure_ascii=False).encode()).decode()
     # ALPN per transport: WebSocket needs HTTP/1.1-only (h2 breaks the WS
     # upgrade through CDN edges); xHTTP is HTTP-native and wants h2 first.
     if "xhttp" in proto:

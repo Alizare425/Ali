@@ -32,6 +32,7 @@ PROTOCOLS = (
     "trojan-xhttp-packet-up",
     "trojan-xhttp-stream-up",
     "shadowsocks",
+    "vmess-ws",
 )
 DEFAULT_PROTOCOL = "vless-ws"
 
@@ -73,6 +74,13 @@ class CoreConfig:
     # Public hostname used when rendering share links (informational only;
     # the Console normally injects this per instance).
     public_host: str = ""
+
+    # VMess (opt-in): an explicitly installed, SHA256-pinned Xray executable.
+    # Core never downloads binaries and refuses to start VMess without both
+    # variables set. Runtime Xray processes bind loopback only.
+    xray_binary: str = ""
+    xray_sha256: str = ""
+    xray_max_runtimes: int = 32
 
     def with_cli_overrides(self, ns: argparse.Namespace) -> "CoreConfig":
         for field in ("port", "host", "config_file", "state_path", "log_level", "log_json", "public_host"):
@@ -132,6 +140,9 @@ def build_config(argv: list[str] | None = None) -> tuple[CoreConfig, argparse.Na
         "write_high_water": ("LUNEL_WRITE_HIGH_WATER", int),
         "ws_handshake_timeout": ("LUNEL_WS_HANDSHAKE_TIMEOUT", float),
         "upstream_connect_timeout": ("LUNEL_UPSTREAM_CONNECT_TIMEOUT", float),
+        "xray_binary": ("LUNEL_XRAY_BINARY", str),
+        "xray_sha256": ("LUNEL_XRAY_SHA256", str),
+        "xray_max_runtimes": ("LUNEL_XRAY_MAX_RUNTIMES", int),
     }
     for field, (env, cast) in env_map.items():
         raw = os.environ.get(env)
