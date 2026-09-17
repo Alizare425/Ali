@@ -403,26 +403,20 @@ async def instance_http_gateway(token: str, path: str, request: Request):
 
     client = httpx.AsyncClient(timeout=None)
     try:
-        if request.method in ("GET", "HEAD", "OPTIONS"):
-            upstream_req = client.build_request(
-                request.method, url, headers=headers, params=None,
-            )
-            upstream_resp = await client.send(upstream_req, stream=True)
-            return StreamingResponse(
-                upstream_resp.aiter_raw(),
-                status_code=upstream_resp.status_code,
-                headers={k: v for k, v in upstream_resp.headers.items()
-                         if k.lower() not in HOP_BY_HOP},
-                background=_close_client(client, upstream_resp),
-            )
-
-        body = await request.body()
-        upstream_resp = await client.request(request.method, url, headers=headers, content=body)
-        return Response(
-            content=upstream_resp.content,
+        # Stream request bodies too: xHTTP stream-up POSTs are infinite upload
+        # streams — buffering via request.body() would wait forever and the
+        # first chunk would never reach Core (stream-up configs never connect).
+        content = None if request.method in ("GET", "HEAD", "OPTIONS") else request.stream()
+        upstream_req = client.build_request(
+            request.method, url, headers=headers, params=None, content=content,
+        )
+        upstream_resp = await client.send(upstream_req, stream=True)
+        return StreamingResponse(
+            upstream_resp.aiter_raw(),
             status_code=upstream_resp.status_code,
             headers={k: v for k, v in upstream_resp.headers.items()
                      if k.lower() not in HOP_BY_HOP},
+            background=_close_client(client, upstream_resp),
         )
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="instance upstream unavailable")

@@ -242,7 +242,10 @@ async def instance_proxy(instance_id: str, path: str, request: Request, _=Depend
     try:
         up_req = client.build_request(
             request.method, url, headers=headers,
-            content=await request.body(),
+            # Stream the request body: xHTTP stream-up POSTs are infinite
+            # uploads — buffering via request.body() would block forever and
+            # stream-up configs would never connect.
+            content=None if request.method in ("GET", "HEAD", "OPTIONS") else request.stream(),
         )
         upstream = await client.send(up_req, stream=True)
         from starlette.background import BackgroundTask
