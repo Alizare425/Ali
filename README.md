@@ -37,7 +37,7 @@ GitHub  →  Lunel Console  →  Create Instance  →  Deploy  →  Running  →
 ## Quick start (fork and go)
 
 Deploy the repository root as **one service** on any platform that gives you
-a PostgreSQL database and a public domain (Railway, Render, …):
+a public HTTPS domain and persistent storage (Railway, Render, …):
 
 1. Fork this repo → add a service from the fork **root** with start command
    `python main.py` → generate a domain → deploy.
@@ -102,7 +102,7 @@ lunel/
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — components, request flow, data model
 - [API.md](docs/API.md) — Console + Core + Worker HTTP API reference
 - [SECURITY.md](docs/SECURITY.md) — security model, threat decisions, reporting
-- [DEPLOYMENT.md](docs/DEPLOYMENT.md) — deployment guide, Docker self-hosting
+- [DEPLOYMENT.md](docs/DEPLOYMENT.md) — managed-platform deployment, Docker self-hosting
 - [INSTALLATION.md](docs/INSTALLATION.md) — prerequisites and setup
 - [DEVELOPMENT.md](docs/DEVELOPMENT.md) — running tests, code layout conventions
 

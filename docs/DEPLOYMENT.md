@@ -1,7 +1,56 @@
 # Deploying Lunel
 
-Use the self-hosted deployment instructions and environment-variable reference below.
-Keep workers on a private network and expose only the console through HTTPS.
+Three supported targets:
+
+1. **One-click (Railway-style managed platform)** — deploy the repository root as a
+   single service. The unified entrypoint (`main.py`) runs the Console, the
+   Worker, and Core-instance management in one process tree. This is the
+   RVG-style flow: fork → deploy → sign in → Create Instance.
+2. **Split multi-service** — console (public domain) + worker
+   (internal-only) as separate services.
+3. **Self-hosted Docker** — full control, optional wildcard-domain edge.
+
+---
+
+## 1. One-click deploy (recommended, zero required variables)
+
+Lunel runs out of the box with **no environment variables at all**: with no
+database configured it uses embedded SQLite (persisted under `/data`), and
+with no GitHub OAuth configured the first visitor creates the admin account
+via the built-in setup screen.
+
+### Managed-platform setup
+
+1. **Fork** this repository to your GitHub account.
+2. **Add a service** from your fork:
+   - Source: your fork, root directory `/` (repository root)
+   - Port: leave the detected port / set `8080`; start command `python main.py`
+   - **Generate a domain** in the service settings → this URL is the whole
+     platform (console UI, API, and all instance endpoints under `/i/<token>`,
+     WebSocket + automatic TLS included).
+3. **Deploy.** Open your domain → sign in with the built-in account
+   **admin / admin** → **Create Instance** → Deploy → the instance page shows
+   a ready endpoint (`https://<your-domain>/i/<token>`) → import the generated
+   link into v2rayNG / NekoBox / Streisand.
+
+> Change the default password right after first login (Admin → System →
+> Change your password). Set `LUNEL_DEFAULT_ADMIN=0` to disable seeding.
+
+That's the whole deployment. Optional hardening once it runs:
+
+| Upgrade | How |
+|---|---|
+| PostgreSQL instead of SQLite | Provision PostgreSQL, set `DATABASE_URL` to its connection URI on the application service, and redeploy. Lunel also accepts `PG*` connection variables. |
+| GitHub sign-in instead of password | Create a GitHub OAuth App (callback `https://<your-domain>/auth/callback`), set `LUNEL_GITHUB_CLIENT_ID` / `LUNEL_GITHUB_CLIENT_SECRET` as service variables. |
+| Public-domain metadata | Set `LUNEL_PUBLIC_URL=https://<your-domain>` and `LUNEL_COOKIE_SECURE=1`. |
+
+Data note: SQLite persists in `/data/lunel.db`; attach a persistent volume to
+`/data` so it survives redeploys, or switch to PostgreSQL as above.
+
+> **Instance isolation note:** on managed platforms the unified service uses
+> the **process driver** (OS rlimits + per-instance data dirs). Container-level
+> isolation (Docker driver) applies in self-hosted mode, or when the platform
+> supports DinD-sidecars.
 
 ### Railway (optional per-instance-domains mode)
 
@@ -10,6 +59,21 @@ the console itself runs on Railway). Each instance is then deployed as its
 own Railway service with a generated public domain — verified against the
 current Railway GraphQL API. Without those variables, Railway uses the same
 single-service behavior as above.
+
+---
+
+## 2. Split multi-service (separate worker node)
+
+For larger deployments, split the console and worker:
+
+| Service | Root directory | Port | Domain | Notes |
+|---|---|---|---|---|
+| `console` | `console/api` | 8080 | **attach** (public) | env vars as in section 1 + `LUNEL_LOCAL_WORKER_URL=http://worker:9100` |
+| `worker` | `worker` | 9100 | **none** (internal-only) | `LUNEL_WORKER_TOKEN` shared with console; `LUNEL_CONSOLE_URL=http://console:8080`; set `LUNEL_CORE_PYTHON=python`, `LUNEL_CORE_CWD=core` with root-directory context containing `core/` |
+
+Keep the worker reachable only on a private network shared with the console;
+not assigning a public domain alone is not an access-control guarantee.
+The console should remain the only public endpoint.
 
 ---
 
